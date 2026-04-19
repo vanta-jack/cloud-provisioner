@@ -8,7 +8,7 @@ A collection of fish wrappers that make it easy to provision VMs on Azure
 - jq
 - fzf
 - zellij
-- Azure CLI
+- Azure CLI 
 
 ## Intended Features
 - An interactive menu and layout for managing VMs

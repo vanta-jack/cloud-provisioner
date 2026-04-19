@@ -1,6 +1,5 @@
 #cloud-config
 package_update: true
-
 packages:
   - xfce4
   - xrdp
@@ -8,7 +7,7 @@ packages:
   - git
   - unzip
   - fish
-  - ripgrep
+  - ripgrep 
   - fd-find
   - build-essential
   - python3-pip

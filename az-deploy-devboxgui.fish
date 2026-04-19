@@ -15,4 +15,4 @@ az vm create \
 
 # Grab the IP and immediately open the reverse SSH tunnel
 set IP (az vm show -d -g MyDevGroup -n DevBox --query publicIps -o tsv)
-ssh -R 8022:localhost:8022 azureuser@$IP
+ssh -R 8022:localhost:8022 azureuser@$IP 
