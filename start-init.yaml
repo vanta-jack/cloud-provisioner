@@ -1,0 +1,95 @@
+#cloud-config
+package_update: true
+
+packages:
+  - xfce4
+  - xrdp
+  - firefox
+  - curl
+  - git
+  - unzip
+  - fish
+  - ripgrep
+  - fd-find
+  - build-essential
+  - python3-pip
+  - python3-venv
+  - pipx
+  # - php-cli for now, php extensions can be added as needed
+  # - php-mbstring
+  # - php-xml
+  # - php-curl
+  # - php-zip
+  # - composer
+  # Ricing dependencies
+  - plank
+  - sassc
+  - dialog
+  - optipng
+  - inkscape
+
+runcmd:
+  # 1. GUI Setup
+  - echo xfce4-session > /home/azureuser/.xsession
+  - chown azureuser:azureuser /home/azureuser/.xsession
+  - systemctl enable xrdp
+  - systemctl restart xrdp
+
+  # 2. Base Tooling (Node, GH CLI, Bun)
+  - curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+  - apt-get install -y nodejs
+  - npm install -g @anthropic-ai/claude-code
+  - curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+  - chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+  - apt-get update && apt-get install -y gh
+  - sudo -u azureuser bash -c 'curl -fsSL https://bun.sh/install | bash'
+
+  # 3. Terminal Ricing: Gum (Charmbracelet Repo)
+  - mkdir -p /etc/apt/keyrings
+  - curl -fsSL https://repo.charm.sh/apt/gpg.key | gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+  - echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | tee /etc/apt/sources.list.d/charm.list
+  - apt-get update && apt-get install -y gum
+
+  # 4. Terminal Ricing: Neovim (Latest release for LazyVim compatibility)
+  - curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz
+  - tar -C /opt -xzf nvim-linux64.tar.gz
+  - ln -s /opt/nvim-linux64/bin/nvim /usr/local/bin/nvim
+
+  # 5. Terminal Ricing: Zellij
+  - curl -L https://github.com/zellij-org/zellij/releases/latest/download/zellij-x86_64-unknown-linux-musl.tar.gz | tar -xz -C /usr/local/bin zellij
+
+  # 6. Terminal Ricing: Yazi
+  - curl -L https://github.com/sxyazi/yazi/releases/latest/download/yazi-x86_64-unknown-linux-gnu.zip -o yazi.zip
+  - unzip yazi.zip && mv yazi-*/yazi yazi-*/ya /usr/local/bin/ && rm -rf yazi*
+
+  # 7. Set Fish as default shell for azureuser
+  - chsh -s /usr/bin/fish azureuser
+
+  # 8. Desktop Ricing: MacOS Aesthetic
+  - git clone https://github.com/vinceliuice/WhiteSur-gtk-theme.git /tmp/whitesur-gtk
+  - /tmp/whitesur-gtk/install.sh -d /usr/share/themes -c Dark
+  - git clone https://github.com/vinceliuice/WhiteSur-icon-theme.git /tmp/whitesur-icons
+  - /tmp/whitesur-icons/install.sh -d /usr/share/icons -b
+  - mkdir -p /home/azureuser/.config/autostart
+  - |
+    cat << 'EOF' > /home/azureuser/apply-mac-rice.sh
+    #!/bin/bash
+    sleep 3
+    xfconf-query -c xsettings -p /Net/ThemeName -s "WhiteSur-Dark" --create -t string
+    xfconf-query -c xsettings -p /Net/IconThemeName -s "WhiteSur-dark" --create -t string
+    xfconf-query -c xfwm4 -p /general/theme -s "WhiteSur-Dark" --create -t string
+    xfconf-query -c xfce4-panel -p /panels/panel-2/autohide-behavior -s 2 --create -t int
+    plank &
+    rm /home/azureuser/.config/autostart/mac-rice.desktop
+    EOF
+  - chmod +x /home/azureuser/apply-mac-rice.sh
+  - |
+    cat << 'EOF' > /home/azureuser/.config/autostart/mac-rice.desktop
+    [Desktop Entry]
+    Type=Application
+    Exec=/home/azureuser/apply-mac-rice.sh
+    Hidden=false
+    Name=Apply Mac Rice
+    EOF
+  - chown -R azureuser:azureuser /home/azureuser/
