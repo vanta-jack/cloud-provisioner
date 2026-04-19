@@ -14,12 +14,12 @@ packages:
   - python3-pip
   - python3-venv
   - pipx
-  # - php-cli for now, php extensions can be added as needed
-  # - php-mbstring
-  # - php-xml
-  # - php-curl
-  # - php-zip
-  # - composer
+  - jq
+  - fzf
+  - bat
+  - eza
+  - pandoc
+  - sqlite3
   # Ricing dependencies
   - plank
   - sassc
@@ -28,6 +28,14 @@ packages:
   - inkscape
 
 runcmd:
+  # 0. Other packages/tools
+  - curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-archive-keyring.gpg
+  - echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-archive-keyring.gpg] https://packages.microsoft.com/repos/edge stable main" | tee /etc/apt/sources.list.d/microsoft-edge-dev.list
+  - echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-archive-keyring.gpg] https://packages.microsoft.com/repos/vscode stable main" | tee /etc/apt/sources.list.d/vscode.list
+  - curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+  - apt-get update
+  - apt-get install -y microsoft-edge-stable code
+  - bash -c 'LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po "\"tag_name\": \"v\K[^\"]*"); curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz" && tar xf lazygit.tar.gz lazygit && install lazygit /usr/local/bin && rm lazygit.tar.gz lazygit'
   # 1. GUI Setup
   - echo xfce4-session > /home/azureuser/.xsession
   - chown azureuser:azureuser /home/azureuser/.xsession
@@ -37,13 +45,13 @@ runcmd:
   # 2. Base Tooling (Node, GH CLI, Bun)
   - curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
   - apt-get install -y nodejs
-  - npm install -g @anthropic-ai/claude-code
-  - curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+  - npm install -g @google/gemini-cli
   - chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
   - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
   - apt-get update && apt-get install -y gh
   - sudo -u azureuser bash -c 'curl -fsSL https://bun.sh/install | bash'
-
+  - sudo -u azureuser bash -c '/home/azureuser/.bun/bin/bun install -g repomix'
+  
   # 3. Terminal Ricing: Gum (Charmbracelet Repo)
   - mkdir -p /etc/apt/keyrings
   - curl -fsSL https://repo.charm.sh/apt/gpg.key | gpg --dearmor -o /etc/apt/keyrings/charm.gpg
@@ -66,6 +74,11 @@ runcmd:
   - chsh -s /usr/bin/fish azureuser
 
   # 8. Desktop Ricing: MacOS Aesthetic
+  - mkdir -p /usr/share/fonts/truetype/ibm-plex-mono-nerd
+  - curl -fsSL https://github.com/ryanoasis/nerd-fonts/releases/download/v3.2.1/IBMPlexMono.zip -o /tmp/IBMPlexMono.zip
+  - unzip -q /tmp/IBMPlexMono.zip -d /usr/share/fonts/truetype/ibm-plex-mono-nerd
+  - fc-cache -fv /usr/share/fonts/truetype/ibm-plex-mono-nerd
+  - rm /tmp/IBMPlexMono.zip
   - git clone https://github.com/vinceliuice/WhiteSur-gtk-theme.git /tmp/whitesur-gtk
   - /tmp/whitesur-gtk/install.sh -d /usr/share/themes -c Dark
   - git clone https://github.com/vinceliuice/WhiteSur-icon-theme.git /tmp/whitesur-icons
@@ -78,6 +91,7 @@ runcmd:
     xfconf-query -c xsettings -p /Net/ThemeName -s "WhiteSur-Dark" --create -t string
     xfconf-query -c xsettings -p /Net/IconThemeName -s "WhiteSur-dark" --create -t string
     xfconf-query -c xfwm4 -p /general/theme -s "WhiteSur-Dark" --create -t string
+    xfconf-query -c xsettings -p /Xft/DPI -s 122880 --create -t int
     xfconf-query -c xfce4-panel -p /panels/panel-2/autohide-behavior -s 2 --create -t int
     plank &
     rm /home/azureuser/.config/autostart/mac-rice.desktop
@@ -91,4 +105,61 @@ runcmd:
     Hidden=false
     Name=Apply Mac Rice
     EOF
-  - chown -R azureuser:azureuser /home/azureuser/
+  - sudo -u azureuser git config --global user.name "vanta-jack"
+  - sudo -u azureuser git config --global user.email "justinencabo996@gmail.com"
+  
+  # 9. Modules & Bootstrap Setup
+  - mkdir -p /home/azureuser/.cloud-provisioner-modules
+  - |
+    cat << 'EOF' > /home/azureuser/.cloud-provisioner-modules/module-webdev.fish
+    #!/usr/bin/fish
+    echo "Installing WebDev tools (PHP, Composer, MariaDB, SQLite3 php extension)..."
+    sudo apt-get update
+    sudo apt-get install -y php-cli php-mbstring php-xml php-curl php-zip php-sqlite3 composer mariadb-server
+    sudo systemctl enable mariadb
+    sudo systemctl restart mariadb
+    echo "WebDev tools installed."
+    EOF
+  - |
+    cat << 'EOF' > /home/azureuser/.cloud-provisioner-modules/module-docker.fish
+    #!/usr/bin/fish
+    echo "Installing Docker..."
+    sudo apt-get update
+    sudo apt-get install -y docker.io
+    sudo usermod -aG docker azureuser
+    echo "Docker installed. Please log out and back in for group changes to take effect."
+    EOF
+  - |
+    cat << 'EOF' > /home/azureuser/.cloud-provisioner-modules/module-kicad.fish
+    #!/usr/bin/fish
+    echo "Installing KiCad..."
+    sudo apt-get update
+    sudo apt-get install -y kicad
+    echo "KiCad installed."
+    EOF
+  - chmod +x /home/azureuser/.cloud-provisioner-modules/*
+  - chown -R azureuser:azureuser /home/azureuser/.cloud-provisioner-modules
+  - |
+    cat << 'EOF' > /home/azureuser/bootstrap-modules.fish
+    #!/usr/bin/fish
+    set selected_modules (gum choose --no-limit "Docker" "WebDev" "KiCad")
+    if test -n "$selected_modules"
+        for mod in $selected_modules
+            switch $mod
+                case "Docker"
+                    ~/.cloud-provisioner-modules/module-docker.fish
+                case "WebDev"
+                    ~/.cloud-provisioner-modules/module-webdev.fish
+                case "KiCad"
+                    ~/.cloud-provisioner-modules/module-kicad.fish
+            end
+        end
+    else
+        echo "No modules selected."
+    end
+    EOF
+  - chmod +x /home/azureuser/bootstrap-modules.fish
+  - chown azureuser:azureuser /home/azureuser/bootstrap-modules.fish
+  - sudo -u azureuser mkdir -p /home/azureuser/.config/fish/conf.d
+  - echo 'echo "Welcome to DevBox! Run `./bootstrap-modules.fish` to install optional toolchains (Docker, WebDev, KiCad)."' > /home/azureuser/.config/fish/conf.d/startup.fish
+  - chown -R azureuser:azureuser /home/azureuser/.config/fish/
