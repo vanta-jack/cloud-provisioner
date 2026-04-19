@@ -4,7 +4,6 @@ package_update: true
 packages:
   - xfce4
   - xrdp
-  - firefox
   - curl
   - git
   - unzip
